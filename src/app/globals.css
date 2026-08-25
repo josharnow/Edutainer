@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f8f7;
+  --foreground: #18262e;
+
+  --card: #ffffff;
+  --card-foreground: #18262e;
+
+  --primary: #285f73;
+  --primary-foreground: #ffffff;
+
+  --secondary: #e4eef1;
+  --secondary-foreground: #24414b;
+
+  --accent: #dcebe2;
+  --accent-foreground: #214d3a;
+
+  --muted: #eef3f2;
+  --muted-foreground: #5b6e73;
+
+  --border: #d5e1e0;
+  --destructive: #b42318;
+  --ring: #285f73;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+
+  --font-sans: ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
