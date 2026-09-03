@@ -12,6 +12,39 @@ type VideoPlayerProps = {
 
 const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 
+function persistVideoTime(storageKey: string, nextTime: number) {
+  try {
+    localStorage.setItem(storageKey, String(nextTime));
+  } catch {
+    // Storage can be unavailable in privacy-restricted browser contexts.
+  }
+}
+
+function throttle(
+  func: (nextTime: number) => void,
+  wait: number
+): (nextTime: number) => void {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let lastTime: number | null = null;
+
+  return (nextTime: number): void => {
+    lastTime = nextTime;
+
+    if (!timeoutId) {
+      func(nextTime);
+
+      timeoutId = setTimeout(() => {
+        timeoutId = null;
+
+        if (lastTime !== null) {
+          func(lastTime);
+          lastTime = null;
+        }
+      }, wait);
+    }
+  };
+}
+
 /** Wraps native playback with synchronized volume, speed, and fullscreen controls. */
 function VideoPlayer({ src, title }: VideoPlayerProps) {
   const playerRef = useRef<HTMLDivElement>(null);
@@ -20,6 +53,34 @@ function VideoPlayer({ src, title }: VideoPlayerProps) {
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState<string>();
+
+  const progressStorageKey = `video-progress:${src}`;
+  const hasRestoredTime = useRef(false);
+  const [, setTime] = useState(0);
+  const throttledSetTime = useRef(
+    throttle((nextTime: number) => {
+      console.log("Updating time:", nextTime);
+      setTime(nextTime);
+      persistVideoTime(progressStorageKey, nextTime);
+    }, 1000)
+  ).current;
+
+  useEffect(() => {
+    hasRestoredTime.current = false;
+  }, [src]);
+
+  useEffect(() => {
+    function persistCurrentTime() {
+      const video = videoRef.current;
+
+      if (video && hasRestoredTime.current) {
+        persistVideoTime(progressStorageKey, video.currentTime);
+      }
+    }
+
+    window.addEventListener("pagehide", persistCurrentTime);
+    return () => window.removeEventListener("pagehide", persistCurrentTime);
+  }, [progressStorageKey]);
 
   useEffect(() => {
     // Fullscreen can end outside this component, such as when Escape is pressed.
@@ -67,6 +128,37 @@ function VideoPlayer({ src, title }: VideoPlayerProps) {
     }
   }
 
+  function handleTimeUpdate(event: React.SyntheticEvent<HTMLVideoElement>) {
+    if (hasRestoredTime.current) {
+      throttledSetTime(event.currentTarget.currentTime);
+    }
+  }
+
+  function handleLoadedMetadata(event: React.SyntheticEvent<HTMLVideoElement>) {
+    const video = event.currentTarget;
+
+    try {
+      const savedTime = Number(localStorage.getItem(progressStorageKey));
+
+      if (
+        Number.isFinite(savedTime) &&
+        savedTime >= 0 &&
+        savedTime < video.duration
+      ) {
+        video.currentTime = savedTime;
+        setTime(savedTime);
+      }
+    } catch {
+      // Storage can be unavailable in privacy-restricted browser contexts.
+    } finally {
+      hasRestoredTime.current = true;
+    }
+  }
+
+  function handlePause(event: React.SyntheticEvent<HTMLVideoElement>) {
+    persistVideoTime(progressStorageKey, event.currentTarget.currentTime);
+  }
+
   return (
     <div
       ref={playerRef}
@@ -84,11 +176,16 @@ function VideoPlayer({ src, title }: VideoPlayerProps) {
           preload="metadata"
           src={src}
           aria-label={`Video lesson: ${title}`}
+          onLoadedMetadata={handleLoadedMetadata}
+          onPause={handlePause}
           onRateChange={(event) =>
             setPlaybackRate(event.currentTarget.playbackRate)
           }
           onVolumeChange={(event) =>
             setVolume(event.currentTarget.muted ? 0 : event.currentTarget.volume)
+          }
+          onTimeUpdate={(event) =>
+            handleTimeUpdate(event)
           }
         >
           Your browser does not support HTML video playback.
